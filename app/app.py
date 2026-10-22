@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import boto3
 from boto3.dynamodb.conditions import Key
-from flask import Flask, redirect, render_template_string, request
+from flask import Flask, redirect, render_template, request
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -17,33 +17,21 @@ TABLE = os.environ.get("DDB_TABLE", "guestbook-messages")
 s3 = boto3.client("s3", region_name=REGION)
 table = boto3.resource("dynamodb", region_name=REGION).Table(TABLE)
 
-PAGE = """<!doctype html>
-<title>Cloud Guestbook</title>
-<h1>Cloud Guestbook</h1>
-<p>Served by EC2 &middot; data in DynamoDB &middot; images in S3</p>
-<form method="post" enctype="multipart/form-data">
-  <input name="name" placeholder="Your name" required>
-  <input name="message" placeholder="Message" required>
-  <input type="file" name="image" accept="image/*">
-  <button>Post</button>
-</form>
-<hr>
-{% for m in messages %}
-  <p><b>{{ m.name }}</b>: {{ m.message }} <small>{{ m.time }} UTC</small>
-  {% if m.url %}<br><img src="{{ m.url }}" width="200">{% endif %}</p>
-{% endfor %}
-"""
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
+        name = request.form.get("name", "").strip()[:50]
+        message = request.form.get("message", "").strip()[:500]
+        if not name or not message:
+            return redirect("/")
+
         now = datetime.now(timezone.utc).isoformat()
         item = {
             "pk": "guestbook",
             "created_at": f"{now}#{uuid.uuid4().hex[:8]}",
-            "name": request.form["name"],
-            "message": request.form["message"],
+            "name": name,
+            "message": message,
         }
         f = request.files.get("image")
         if f and f.filename:
@@ -60,7 +48,10 @@ def index():
     )
     rows = resp["Items"]
     for r in rows:
-        r["time"] = r["created_at"][:19].replace("T", " ")
+        r["iso"] = r["created_at"].split("#")[0]
+        r["time"] = r["created_at"][:16].replace("T", " ")
+        r["initial"] = r["name"][:1].upper()
+        r["hue"] = sum(map(ord, r["name"])) % 360
         key = r.get("image_key")
         r["url"] = (
             s3.generate_presigned_url(
@@ -71,7 +62,12 @@ def index():
             if key
             else None
         )
-    return render_template_string(PAGE, messages=rows)
+    return render_template("index.html", messages=rows)
+
+
+@app.errorhandler(413)
+def too_large(_):
+    return "Photo is too large. Please go back and choose one under 5 MB.", 413
 
 
 @app.route("/health")

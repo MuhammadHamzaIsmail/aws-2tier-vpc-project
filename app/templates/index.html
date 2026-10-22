@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cloud Guestbook</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f6fb; --card: #ffffff; --text: #1d2433; --muted: #6b7385;
+      --line: #e3e7ef; --brand: #ff9900; --brand-dark: #e68a00; --navy: #232f3e;
+      --radius: 16px;
+      --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f141c; --card: #171e29; --text: #e7ebf3; --muted: #98a2b3; --line: #273142; --shadow: none; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+    .hero { background: linear-gradient(135deg, var(--navy) 0%, #37475a 100%); color: #fff; padding: 48px 20px 96px; text-align: center; }
+    .hero h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 40px); letter-spacing: -0.02em; }
+    .hero p { margin: 0; color: #c8d1dc; }
+    .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+    .badge { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); }
+
+    .wrap { max-width: 680px; margin: -64px auto 48px; padding: 0 16px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+
+    .form h2 { margin: 0 0 16px; font-size: 18px; }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    input[type=text], textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; transition: border-color .15s, box-shadow .15s; }
+    textarea { min-height: 96px; resize: vertical; }
+    input[type=text]:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(255,153,0,.2); }
+    .counter { font-size: 12px; color: var(--muted); text-align: right; margin-top: 4px; }
+
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+    .upload { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 10px; cursor: pointer; color: var(--muted); font-size: 14px; }
+    .upload:hover { border-color: var(--brand); color: var(--text); }
+    .upload input { display: none; }
+    .preview { display: none; margin-top: 14px; position: relative; width: fit-content; }
+    .preview img { max-width: 180px; max-height: 180px; border-radius: 10px; display: block; }
+    .preview button { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--navy); color: #fff; cursor: pointer; font-size: 14px; line-height: 1; }
+
+    .post { background: var(--brand); color: #1d2433; border: 0; padding: 12px 24px; border-radius: 10px; font: inherit; font-weight: 700; cursor: pointer; transition: background .15s; }
+    .post:hover { background: var(--brand-dark); }
+    .post:disabled { opacity: .6; cursor: wait; }
+
+    .feed-head { display: flex; justify-content: space-between; align-items: baseline; margin: 32px 4px 12px; }
+    .feed-head h2 { margin: 0; font-size: 18px; }
+    .feed-head span { color: var(--muted); font-size: 14px; }
+
+    .msg { display: flex; gap: 14px; margin-bottom: 12px; padding: 18px; }
+    .avatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; }
+    .body { min-width: 0; flex: 1; }
+    .meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .name { font-weight: 600; }
+    time { font-size: 12px; color: var(--muted); }
+    .msg p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .msg img { margin-top: 12px; max-width: 100%; max-height: 360px; border-radius: 12px; display: block; }
+
+    .empty { text-align: center; color: var(--muted); padding: 40px 24px; }
+    footer { text-align: center; color: var(--muted); font-size: 13px; padding: 0 16px 40px; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <h1>Cloud Guestbook</h1>
+    <p>Leave a message, and add a photo if you like.</p>
+    <div class="badges">
+      <span class="badge">EC2</span>
+      <span class="badge">DynamoDB</span>
+      <span class="badge">S3</span>
+      <span class="badge">VPC</span>
+      <span class="badge">Terraform</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <form class="card form" method="post" enctype="multipart/form-data" id="post-form">
+      <h2>Write a message</h2>
+      <div class="field">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" maxlength="50" placeholder="e.g. Hamza" required>
+      </div>
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" maxlength="500" placeholder="Say hello..." required></textarea>
+        <div class="counter"><span id="count">0</span> / 500</div>
+      </div>
+      <div class="row">
+        <label class="upload">
+          <span id="upload-text">📷 Add a photo (max 5 MB)</span>
+          <input type="file" name="image" id="image" accept="image/*">
+        </label>
+        <button class="post" type="submit" id="post-btn">Post message</button>
+      </div>
+      <div class="preview" id="preview">
+        <img id="preview-img" alt="Selected photo preview">
+        <button type="button" id="remove-photo" aria-label="Remove photo">✕</button>
+      </div>
+    </form>
+
+    <div class="feed-head">
+      <h2>Messages</h2>
+      <span>{{ messages|length }} shown</span>
+    </div>
+
+    {% for m in messages %}
+      <article class="card msg">
+        <div class="avatar" style="background: hsl({{ m.hue }} 55% 45%)">{{ m.initial }}</div>
+        <div class="body">
+          <div class="meta">
+            <span class="name">{{ m.name }}</span>
+            <time datetime="{{ m.iso }}">{{ m.time }} UTC</time>
+          </div>
+          <p>{{ m.message }}</p>
+          {% if m.url %}
+            <a href="{{ m.url }}" target="_blank" rel="noopener"><img src="{{ m.url }}" alt="Photo from {{ m.name }}" loading="lazy"></a>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <div class="card empty">No messages yet. Be the first!</div>
+    {% endfor %}
+  </main>
+
+  <footer>Served by EC2 · data in DynamoDB · photos in S3</footer>
+
+  <script>
+    const msg = document.getElementById("message");
+    const count = document.getElementById("count");
+    msg.addEventListener("input", () => { count.textContent = msg.value.length; });
+
+    const input = document.getElementById("image");
+    const preview = document.getElementById("preview");
+    const previewImg = document.getElementById("preview-img");
+    const uploadText = document.getElementById("upload-text");
+    const defaultText = uploadText.textContent;
+
+    function clearPhoto() {
+      input.value = "";
+      preview.style.display = "none";
+      uploadText.textContent = defaultText;
+    }
+
+    input.addEventListener("change", () => {
+      const file = input.files[0];
+      if (!file) return clearPhoto();
+      if (file.size > 5 * 1024 * 1024) {
+        alert("That photo is larger than 5 MB. Please choose a smaller one.");
+        return clearPhoto();
+      }
+      previewImg.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+      uploadText.textContent = "📷 " + file.name;
+    });
+    document.getElementById("remove-photo").addEventListener("click", clearPhoto);
+
+    document.getElementById("post-form").addEventListener("submit", () => {
+      const btn = document.getElementById("post-btn");
+      btn.disabled = true;
+      btn.textContent = "Posting...";
+    });
+
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    document.querySelectorAll("time[datetime]").forEach((el) => {
+      const date = new Date(el.getAttribute("datetime"));
+      if (isNaN(date)) return;
+      const mins = Math.round((date - Date.now()) / 60000);
+      if (Math.abs(mins) < 60) el.textContent = rtf.format(mins, "minute");
+      else if (Math.abs(mins) < 1440) el.textContent = rtf.format(Math.round(mins / 60), "hour");
+      else el.textContent = date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      el.title = date.toLocaleString();
+    });
+  </script>
+</body>
+</html>
